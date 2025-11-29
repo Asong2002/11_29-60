@@ -164,7 +164,6 @@ export default function Home(): JSX.Element {
     return -1;
   }, [messages]);
 
-  // 返回组件JSX，确保添加适当的类型
   return (
     <main className="main">
       {/* 重置按钮 */}
