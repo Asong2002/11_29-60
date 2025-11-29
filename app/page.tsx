@@ -21,15 +21,34 @@ export default function Home(): JSX.Element {
   const [conversationEnded, setConversationEnded] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // 从localStorage恢复状态
+  // 从localStorage恢复状态 - 修复初始化问题
   useEffect(() => {
     const savedEmotionalCount = localStorage.getItem('emotionalCount');
     const savedConversationEnded = localStorage.getItem('conversationEnded');
     
-    if (savedEmotionalCount) setEmotionalCount(parseInt(savedEmotionalCount, 10));
-    if (savedConversationEnded === 'true') setConversationEnded(true);
-  }, []);
-  
+    // 确保从localStorage读取的值是有效的
+    if (savedEmotionalCount && !isNaN(parseInt(savedEmotionalCount, 10))) {
+      const count = parseInt(savedEmotionalCount, 10);
+      setEmotionalCount(count);
+      
+      // 只有在计数达到10时才设置对话结束
+      if (count >= 10) {
+        setConversationEnded(true);
+        // 如果对话已结束但还没有结束消息，添加一个
+        if (messages.length === 1) {
+          setMessages(prev => [...prev, { 
+            sender: 'bot', 
+            content: 'Conversation ended. Thank you for chatting with me!\n\nFixed Code: MUAKC' 
+          }]);
+        }
+      }
+    }
+    
+    if (savedConversationEnded === 'true') {
+      setConversationEnded(true);
+    }
+  }, [messages.length]);
+
   // 保存状态到localStorage
   useEffect(() => {
     localStorage.setItem('emotionalCount', emotionalCount.toString());
@@ -57,8 +76,11 @@ export default function Home(): JSX.Element {
       setEmotionalCount((prev: number) => {
         const newCount = prev + 1;
         
+        console.log(`Emotional count updated: ${prev} -> ${newCount}`);
+        
         // 检查是否达到终止条件（10次情感交互）
         if (newCount >= 10) {
+          console.log('Reached 10 emotional interactions, ending conversation');
           setConversationEnded(true);
           // 添加终止消息和固定代码
           setTimeout(() => {
@@ -84,6 +106,8 @@ export default function Home(): JSX.Element {
     const msg = inputValue.trim();
     if (!msg || isLoading || conversationEnded) return;
 
+    console.log('Sending message:', msg);
+
     // 添加用户消息
     setMessages((prev: Message[]) => [...prev, { sender: 'user', content: msg }]);
     setInputValue('');
@@ -108,6 +132,7 @@ export default function Home(): JSX.Element {
 
       if (data.success) {
         const reply = data.response || 'Sorry, I cannot respond at the moment.';
+        console.log('Bot reply:', reply);
         const { shouldBlush, showHearts, isEmotional } = checkTildeAndBlush(reply);
         setMessages((prev: Message[]) => [...prev, { 
           sender: 'bot', 
@@ -116,10 +141,6 @@ export default function Home(): JSX.Element {
           showHearts,
           isEmotional
         }]);
-        
-        // 关键修复：每次对话都更新计数器显示
-        // 即使没有波浪线，也要确保UI重新渲染以显示最新计数
-        setEmotionalCount(current => current);
         
       } else {
         setMessages((prev: Message[]) => [...prev, { 
@@ -148,6 +169,17 @@ export default function Home(): JSX.Element {
     }
   };
 
+  // 重置对话的调试函数（仅在开发时使用）
+  const resetConversation = (): void => {
+    console.log('Resetting conversation');
+    setMessages([{ sender: 'bot', content: 'Hello! I am Arin, nice to meet you!' }]);
+    setEmotionalCount(0);
+    setConversationEnded(false);
+    setInputValue('');
+    localStorage.removeItem('emotionalCount');
+    localStorage.removeItem('conversationEnded');
+  };
+
   // 找到最新的非"Typing..."的bot消息索引
   const latestBotMessageIndex = useMemo<number>(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -161,6 +193,27 @@ export default function Home(): JSX.Element {
 
   return (
     <main className="main">
+      {/* 调试按钮 - 仅在开发时显示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <button 
+          onClick={resetConversation}
+          style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            background: '#ff4444',
+            color: 'white',
+            border: 'none',
+            padding: '5px 10px',
+            borderRadius: '5px',
+            fontSize: '12px',
+            zIndex: 1000
+          }}
+        >
+          重置对话
+        </button>
+      )}
+
       <div className="stats-panel">
         <div className="stat-item">
           <div className="stat-label">Emotional Interactions</div>
