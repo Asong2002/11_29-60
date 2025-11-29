@@ -1,0 +1,18 @@
+#!/bin/bash
+echo "=========================================="
+echo "准备推送到 GitHub..."
+echo "=========================================="
+echo ""
+echo "请确保你已经："
+echo "1. 创建了 GitHub 个人访问令牌"
+echo "2. 令牌有 'repo' 权限"
+echo ""
+echo "如果没有，请访问："
+echo "https://github.com/settings/tokens/new"
+echo ""
+read -p "按 Enter 继续，或 Ctrl+C 取消..."
+echo ""
+echo "正在推送代码..."
+git push -u origin main
+echo ""
+echo "完成！"
