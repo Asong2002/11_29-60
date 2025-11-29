@@ -8,6 +8,7 @@ interface Message {
   content: string;
   shouldBlush?: boolean;
   showHearts?: boolean;
+  isEmotional?: boolean;
 }
 
 export default function Home(): JSX.Element {
@@ -43,12 +44,15 @@ export default function Home(): JSX.Element {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const checkTildeAndBlush = (text: string): { shouldBlush: boolean; showHearts: boolean } => {
+  const checkTildeAndBlush = (text: string): { shouldBlush: boolean; showHearts: boolean; isEmotional: boolean } => {
     const hasTilde = text.includes('～') || text.includes('~');
     let shouldBlush = false;
     let showHearts = false;
+    let isEmotional = false;
 
     if (hasTilde && !conversationEnded) {
+      isEmotional = true;
+      
       // 增加情感交互计数
       setEmotionalCount((prev: number) => {
         const newCount = prev + 1;
@@ -73,7 +77,7 @@ export default function Home(): JSX.Element {
       showHearts = shouldShowEffects;
     }
 
-    return { shouldBlush, showHearts };
+    return { shouldBlush, showHearts, isEmotional };
   };
 
   const sendMessage = async (): Promise<void> => {
@@ -104,13 +108,19 @@ export default function Home(): JSX.Element {
 
       if (data.success) {
         const reply = data.response || 'Sorry, I cannot respond at the moment.';
-        const { shouldBlush, showHearts } = checkTildeAndBlush(reply);
+        const { shouldBlush, showHearts, isEmotional } = checkTildeAndBlush(reply);
         setMessages((prev: Message[]) => [...prev, { 
           sender: 'bot', 
           content: reply, 
           shouldBlush,
-          showHearts
+          showHearts,
+          isEmotional
         }]);
+        
+        // 关键修复：每次对话都更新计数器显示
+        // 即使没有波浪线，也要确保UI重新渲染以显示最新计数
+        setEmotionalCount(current => current);
+        
       } else {
         setMessages((prev: Message[]) => [...prev, { 
           sender: 'bot', 
