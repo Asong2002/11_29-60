@@ -81,8 +81,7 @@ export default function Home(): JSX.Element {
         return newCount;
       });
 
-      // 【修改】现在设置为 100% 概率脸红，方便您查看效果。
-      // 如果您想改回 60%，请将下面的 `true` 改为 `Math.random() < 0.6`
+      // 100% 概率脸红 (如需改回60%，将 true 改为 Math.random() < 0.6)
       const shouldShowEffects = true; 
       
       shouldBlush = shouldShowEffects;
@@ -163,18 +162,13 @@ export default function Home(): JSX.Element {
 
   return (
     <main className="main">
-      {/* 重置按钮 */}
       <button onClick={resetConversation} className="debug-reset-btn">Reset</button>
 
       <div className="stats-panel">
         <div className="stat-item">
-          <div className="stat-label">Affection Level</div>
-          <div className="stat-value">
-             {/* 进度条：爱心显示 */}
-             {Array.from({ length: 10 }).map((_, i) => (
-                <span key={i} style={{ opacity: i < emotionalCount ? 1 : 0.2, fontSize: '16px' }}>❤️</span>
-             ))}
-          </div>
+          {/* 【修改】改回文字标题和数字计数 */}
+          <div className="stat-label">Emotional Interactions</div>
+          <div className="stat-value">{emotionalCount}/10</div>
         </div>
       </div>
 
@@ -195,7 +189,7 @@ export default function Home(): JSX.Element {
                   <div className="avatar-wrapper">
                     {/* 头像容器 */}
                     <div className="message-avatar">
-                      {/* 【修改】图片尺寸放大 */}
+                      {/* 图片保持 90% 大小 */}
                       <img src="/robot-avatar.svg" alt="Arin" className="avatar-img" />
                       
                       {/* 脸红腮红叠加层 */}
@@ -230,17 +224,22 @@ export default function Home(): JSX.Element {
               <p className="fixed-code">MUAKC</p>
             </div>
           ) : (
-            // 【修改】移除了 Placeholder 和 Send 按钮
-            <input
-              type="text"
-              className="input-field"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="" 
-              disabled={isLoading}
-              autoFocus
-            />
+            // 【修改】恢复了 Send 按钮布局，移除了 placeholder
+            <React.Fragment>
+              <input
+                type="text"
+                className="input-field"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="" 
+                disabled={isLoading}
+                autoFocus
+              />
+              <button className="send-button" onClick={sendMessage} disabled={isLoading || !inputValue.trim()}>
+                {isLoading ? '...' : 'Send'}
+              </button>
+            </React.Fragment>
           )}
         </div>
       </div>
@@ -270,8 +269,28 @@ export default function Home(): JSX.Element {
           z-index: 999;
         }
         
+        /* 统计栏样式 */
         .stats-panel { margin-bottom: 15px; }
-        .stat-value { letter-spacing: 2px; margin-top: 5px; }
+        .stat-item {
+          background: #fff;
+          padding: 8px 20px;
+          border-radius: 20px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+          text-align: center;
+        }
+        .stat-label {
+          font-size: 12px;
+          color: #888;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-weight: bold;
+        }
+        .stat-value { 
+          font-size: 20px; 
+          font-weight: bold;
+          color: #6a8ca9;
+          margin-top: 2px;
+        }
 
         .chat-container {
           width: 100%;
@@ -307,13 +326,13 @@ export default function Home(): JSX.Element {
 
         .message-wrapper {
           display: flex;
-          align-items: flex-end;
+          align-items: flex-end; 
           gap: 10px;
         }
         .user-message-wrapper { justify-content: flex-end; }
         .bot-message-wrapper { justify-content: flex-start; }
 
-        /* --- 核心升级：头像与腮红 --- */
+        /* --- 头像与腮红 --- */
         .avatar-wrapper {
           position: relative;
         }
@@ -322,7 +341,7 @@ export default function Home(): JSX.Element {
           width: 44px;
           height: 44px;
           border-radius: 50%;
-          background: #fff; /* 确保背景是白的，图片放大多大都不怕 */
+          background: #fff;
           border: 2px solid #fff;
           box-shadow: 0 2px 5px rgba(0,0,0,0.1);
           overflow: hidden;
@@ -332,27 +351,25 @@ export default function Home(): JSX.Element {
           justify-content: center;
         }
 
-        /* 【修改】图片尺寸放大至 90%，确保看起来更大 */
         .avatar-img {
           width: 90%;
           height: 90%;
           z-index: 1;
           position: relative;
-          object-fit: cover; /* 确保图片不会变形 */
+          object-fit: cover;
         }
 
-        /* 腮红：调整位置，使其在图片放大后依然在脸颊位置 */
+        /* 腮红 */
         .blush-cheek {
           position: absolute;
           width: 16px; 
           height: 10px;
           border-radius: 50%;
-          /* 更柔和的粉色渐变，模拟真实腮红 */
           background: radial-gradient(circle, rgba(255,105,180, 0.7) 0%, rgba(255,192,203, 0) 70%);
           opacity: 0;
-          z-index: 2; /* 浮在图片上面 */
+          z-index: 2; 
           transition: opacity 0.8s ease-in-out;
-          bottom: 10px; /* 位置微调 */
+          bottom: 10px; 
         }
 
         .blush-left { left: 4px; }
@@ -413,18 +430,16 @@ export default function Home(): JSX.Element {
           border-bottom-left-radius: 4px;
         }
 
-        /* --- 输入框样式（移除按钮版） --- */
+        /* --- 输入框样式（恢复按钮） --- */
         .input-container {
           padding: 15px;
           border-top: 1px solid #eee;
           background: white;
           display: flex;
-          justify-content: center; /* 居中 */
+          gap: 10px;
         }
-        
-        /* 移除按钮后，输入框占满宽度 */
         .input-field {
-          width: 100%; 
+          flex: 1;
           padding: 12px 15px;
           border-radius: 20px;
           border: 1px solid #ddd;
@@ -433,6 +448,22 @@ export default function Home(): JSX.Element {
           font-size: 14px;
         }
         .input-field:focus { border-color: #6a8ca9; }
+        
+        .send-button {
+          background: #6a8ca9;
+          color: white;
+          border: none;
+          padding: 0 20px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-weight: 600;
+          white-space: nowrap; /* 防止按钮文字换行 */
+        }
+        .send-button:disabled { 
+          background: #ccc;
+          opacity: 0.7; 
+          cursor: not-allowed;
+        }
         
         .conversation-ended {
           width: 100%;
