@@ -6,8 +6,8 @@ const { useState, useRef, useEffect, useMemo } = React;
 interface Message {
   sender: 'user' | 'bot';
   content: string;
-  shouldBlush?: boolean; // 触发脸红
-  showHearts?: boolean;  // 触发爱心特效
+  shouldBlush?: boolean; 
+  showHearts?: boolean;
   isEmotional?: boolean;
 }
 
@@ -21,8 +21,7 @@ export default function Home(): JSX.Element {
   const [conversationEnded, setConversationEnded] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // --- 状态管理逻辑 (保持不变) ---
-  
+  // --- 状态管理逻辑 ---
   useEffect(() => {
     const savedEmotionalCount = localStorage.getItem('emotionalCount');
     const savedConversationEnded = localStorage.getItem('conversationEnded');
@@ -43,7 +42,7 @@ export default function Home(): JSX.Element {
     if (savedConversationEnded === 'true') {
       setConversationEnded(true);
     }
-  }, []); // 空依赖数组，只在挂载时运行一次，避免刷新立即结束的bug
+  }, []); 
 
   useEffect(() => {
     localStorage.setItem('emotionalCount', emotionalCount.toString());
@@ -58,7 +57,7 @@ export default function Home(): JSX.Element {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // --- 核心逻辑：检测波浪号并触发特效 ---
+  // --- 核心逻辑 ---
   const checkTildeAndBlush = (text: string): { shouldBlush: boolean; showHearts: boolean; isEmotional: boolean } => {
     const hasTilde = text.includes('～') || text.includes('~');
     let shouldBlush = false;
@@ -82,8 +81,10 @@ export default function Home(): JSX.Element {
         return newCount;
       });
 
-      // 只要检测到波浪号，这次大概率(80%)触发脸红和爱心
-      const shouldShowEffects = Math.random() < 0.8;
+      // 【修改】现在设置为 100% 概率脸红，方便您查看效果。
+      // 如果您想改回 60%，请将下面的 `true` 改为 `Math.random() < 0.6`
+      const shouldShowEffects = true; 
+      
       shouldBlush = shouldShowEffects;
       showHearts = shouldShowEffects;
     }
@@ -113,7 +114,6 @@ export default function Home(): JSX.Element {
 
       if (data.success) {
         const reply = data.response || 'Sorry, I cannot respond at the moment.';
-        // 计算特效状态
         const { shouldBlush, showHearts, isEmotional } = checkTildeAndBlush(reply);
         
         setMessages((prev: Message[]) => [...prev, { 
@@ -170,7 +170,7 @@ export default function Home(): JSX.Element {
         <div className="stat-item">
           <div className="stat-label">Affection Level</div>
           <div className="stat-value">
-             {/* 用爱心展示进度 */}
+             {/* 进度条：爱心显示 */}
              {Array.from({ length: 10 }).map((_, i) => (
                 <span key={i} style={{ opacity: i < emotionalCount ? 1 : 0.2, fontSize: '16px' }}>❤️</span>
              ))}
@@ -187,7 +187,6 @@ export default function Home(): JSX.Element {
         <div className="messages">
           {messages.map((msg: Message, index: number) => {
             const isLatestBot = msg.sender === 'bot' && msg.content !== 'Typing...' && index === latestBotMessageIndex;
-            // 只有最新的消息才会显示这种强烈特效
             const activeBlush = isLatestBot && msg.shouldBlush;
             
             return (
@@ -196,9 +195,10 @@ export default function Home(): JSX.Element {
                   <div className="avatar-wrapper">
                     {/* 头像容器 */}
                     <div className="message-avatar">
+                      {/* 【修改】图片尺寸放大 */}
                       <img src="/robot-avatar.svg" alt="Arin" className="avatar-img" />
                       
-                      {/* 自然的脸红遮罩：两个柔和的粉色光晕 */}
+                      {/* 脸红腮红叠加层 */}
                       <div className={`blush-cheek blush-left ${activeBlush ? 'active' : ''}`} />
                       <div className={`blush-cheek blush-right ${activeBlush ? 'active' : ''}`} />
                     </div>
@@ -230,20 +230,17 @@ export default function Home(): JSX.Element {
               <p className="fixed-code">MUAKC</p>
             </div>
           ) : (
-            <>
-              <input
-                type="text"
-                className="input-field"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Say something nice... (Try ~)"
-                disabled={isLoading}
-              />
-              <button className="send-button" onClick={sendMessage} disabled={isLoading || !inputValue.trim()}>
-                {isLoading ? '...' : 'Send'}
-              </button>
-            </>
+            // 【修改】移除了 Placeholder 和 Send 按钮
+            <input
+              type="text"
+              className="input-field"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="" 
+              disabled={isLoading}
+              autoFocus
+            />
           )}
         </div>
       </div>
@@ -310,13 +307,13 @@ export default function Home(): JSX.Element {
 
         .message-wrapper {
           display: flex;
-          align-items: flex-end; /* 底部对齐让气泡更自然 */
+          align-items: flex-end;
           gap: 10px;
         }
         .user-message-wrapper { justify-content: flex-end; }
         .bot-message-wrapper { justify-content: flex-start; }
 
-        /* --- 核心升级：自然脸红头像 --- */
+        /* --- 核心升级：头像与腮红 --- */
         .avatar-wrapper {
           position: relative;
         }
@@ -325,48 +322,50 @@ export default function Home(): JSX.Element {
           width: 44px;
           height: 44px;
           border-radius: 50%;
-          background: #eee;
+          background: #fff; /* 确保背景是白的，图片放大多大都不怕 */
           border: 2px solid #fff;
           box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          overflow: hidden; /* 确保脸红不溢出圆圈 */
+          overflow: hidden;
           position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
+        /* 【修改】图片尺寸放大至 90%，确保看起来更大 */
         .avatar-img {
-          width: 70%;
-          height: 70%;
-          z-index: 1; /* 图片在底层 */
+          width: 90%;
+          height: 90%;
+          z-index: 1;
           position: relative;
+          object-fit: cover; /* 确保图片不会变形 */
         }
 
-        /* 脸红层：绝对定位在头像之上，但使用混合模式让它看起来像印在脸上 */
+        /* 腮红：调整位置，使其在图片放大后依然在脸颊位置 */
         .blush-cheek {
           position: absolute;
-          width: 18px;
-          height: 12px;
+          width: 16px; 
+          height: 10px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,105,180, 0.6) 0%, rgba(255,192,203, 0) 70%);
+          /* 更柔和的粉色渐变，模拟真实腮红 */
+          background: radial-gradient(circle, rgba(255,105,180, 0.7) 0%, rgba(255,192,203, 0) 70%);
           opacity: 0;
-          z-index: 2;
-          transition: opacity 0.8s ease-in-out; /* 缓慢过渡，更加自然 */
-          bottom: 12px; /* 调整到大致脸颊的位置 */
+          z-index: 2; /* 浮在图片上面 */
+          transition: opacity 0.8s ease-in-out;
+          bottom: 10px; /* 位置微调 */
         }
 
-        .blush-left { left: 6px; }
-        .blush-right { right: 6px; }
+        .blush-left { left: 4px; }
+        .blush-right { right: 4px; }
 
-        /* 激活状态 */
         .blush-cheek.active {
           opacity: 1;
         }
 
-        /* --- 核心升级：粉红爱心气泡 --- */
+        /* --- 爱心气泡动画 --- */
         .bubble-hearts-container {
           position: absolute;
-          top: -10px; /* 从头像顶部开始 */
+          top: -10px;
           left: 0;
           width: 100%;
           height: 50px;
@@ -380,45 +379,21 @@ export default function Home(): JSX.Element {
           bottom: 0;
           left: 50%;
           opacity: 0;
-          /* 默认动画 */
           animation: floatBubble 2.5s ease-out forwards;
         }
 
-        /* 给三个爱心不同的延迟和偏移，制造自然的气泡感 */
-        .heart-1 {
-          font-size: 16px;
-          margin-left: -15px;
-          animation-delay: 0s;
-        }
-        .heart-2 {
-          font-size: 12px;
-          margin-left: 10px;
-          animation-delay: 0.4s;
-        }
-        .heart-3 {
-          font-size: 18px;
-          margin-left: -5px;
-          animation-delay: 0.8s;
-        }
+        .heart-1 { font-size: 16px; margin-left: -15px; animation-delay: 0s; }
+        .heart-2 { font-size: 12px; margin-left: 10px; animation-delay: 0.4s; }
+        .heart-3 { font-size: 18px; margin-left: -5px; animation-delay: 0.8s; }
 
         @keyframes floatBubble {
-          0% {
-            transform: translateY(10px) scale(0.5);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          80% {
-            opacity: 0.8;
-          }
-          100% {
-            transform: translateY(-40px) scale(1.1); /* 向上飘 */
-            opacity: 0;
-          }
+          0% { transform: translateY(10px) scale(0.5); opacity: 0; }
+          20% { opacity: 1; }
+          80% { opacity: 0.8; }
+          100% { transform: translateY(-40px) scale(1.1); opacity: 0; }
         }
 
-        /* --- 消息气泡样式 --- */
+        /* --- 消息样式 --- */
         .message {
           max-width: 70%;
           padding: 10px 14px;
@@ -438,33 +413,26 @@ export default function Home(): JSX.Element {
           border-bottom-left-radius: 4px;
         }
 
-        /* --- 输入框 --- */
+        /* --- 输入框样式（移除按钮版） --- */
         .input-container {
           padding: 15px;
           border-top: 1px solid #eee;
           background: white;
           display: flex;
-          gap: 10px;
+          justify-content: center; /* 居中 */
         }
+        
+        /* 移除按钮后，输入框占满宽度 */
         .input-field {
-          flex: 1;
+          width: 100%; 
           padding: 12px 15px;
           border-radius: 20px;
           border: 1px solid #ddd;
           outline: none;
           transition: 0.3s;
+          font-size: 14px;
         }
         .input-field:focus { border-color: #6a8ca9; }
-        .send-button {
-          background: #6a8ca9;
-          color: white;
-          border: none;
-          padding: 0 20px;
-          border-radius: 20px;
-          cursor: pointer;
-          font-weight: 600;
-        }
-        .send-button:disabled { opacity: 0.5; }
         
         .conversation-ended {
           width: 100%;
