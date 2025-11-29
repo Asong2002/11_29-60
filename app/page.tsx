@@ -6,8 +6,8 @@ const { useState, useRef, useEffect, useMemo } = React;
 interface Message {
   sender: 'user' | 'bot';
   content: string;
-  shouldBlush?: boolean;
-  showHearts?: boolean;
+  shouldBlush?: boolean; // 触发脸红
+  showHearts?: boolean;  // 触发爱心特效
   isEmotional?: boolean;
 }
 
@@ -21,20 +21,17 @@ export default function Home(): JSX.Element {
   const [conversationEnded, setConversationEnded] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // 从localStorage恢复状态 - 修复初始化问题
+  // --- 状态管理逻辑 (保持不变) ---
+  
   useEffect(() => {
     const savedEmotionalCount = localStorage.getItem('emotionalCount');
     const savedConversationEnded = localStorage.getItem('conversationEnded');
     
-    // 确保从localStorage读取的值是有效的
     if (savedEmotionalCount && !isNaN(parseInt(savedEmotionalCount, 10))) {
       const count = parseInt(savedEmotionalCount, 10);
       setEmotionalCount(count);
-      
-      // 只有在计数达到10时才设置对话结束
       if (count >= 10) {
         setConversationEnded(true);
-        // 如果对话已结束但还没有结束消息，添加一个
         if (messages.length === 1) {
           setMessages(prev => [...prev, { 
             sender: 'bot', 
@@ -43,13 +40,11 @@ export default function Home(): JSX.Element {
         }
       }
     }
-    
     if (savedConversationEnded === 'true') {
       setConversationEnded(true);
     }
-  }, [messages.length]);
+  }, []); // 空依赖数组，只在挂载时运行一次，避免刷新立即结束的bug
 
-  // 保存状态到localStorage
   useEffect(() => {
     localStorage.setItem('emotionalCount', emotionalCount.toString());
     localStorage.setItem('conversationEnded', conversationEnded.toString());
@@ -63,6 +58,7 @@ export default function Home(): JSX.Element {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // --- 核心逻辑：检测波浪号并触发特效 ---
   const checkTildeAndBlush = (text: string): { shouldBlush: boolean; showHearts: boolean; isEmotional: boolean } => {
     const hasTilde = text.includes('～') || text.includes('~');
     let shouldBlush = false;
@@ -72,17 +68,10 @@ export default function Home(): JSX.Element {
     if (hasTilde && !conversationEnded) {
       isEmotional = true;
       
-      // 增加情感交互计数
       setEmotionalCount((prev: number) => {
         const newCount = prev + 1;
-        
-        console.log(`Emotional count updated: ${prev} -> ${newCount}`);
-        
-        // 检查是否达到终止条件（10次情感交互）
         if (newCount >= 10) {
-          console.log('Reached 10 emotional interactions, ending conversation');
           setConversationEnded(true);
-          // 添加终止消息和固定代码
           setTimeout(() => {
             setMessages((prevMessages: Message[]) => [...prevMessages, { 
               sender: 'bot', 
@@ -93,8 +82,8 @@ export default function Home(): JSX.Element {
         return newCount;
       });
 
-      // 60%的概率显示脸红和爱心
-      const shouldShowEffects = Math.random() < 0.6;
+      // 只要检测到波浪号，这次大概率(80%)触发脸红和爱心
+      const shouldShowEffects = Math.random() < 0.8;
       shouldBlush = shouldShowEffects;
       showHearts = shouldShowEffects;
     }
@@ -106,34 +95,27 @@ export default function Home(): JSX.Element {
     const msg = inputValue.trim();
     if (!msg || isLoading || conversationEnded) return;
 
-    console.log('Sending message:', msg);
-
-    // 添加用户消息
     setMessages((prev: Message[]) => [...prev, { sender: 'user', content: msg }]);
     setInputValue('');
     setIsLoading(true);
-
-    // 显示typing指示器
     setMessages((prev: Message[]) => [...prev, { sender: 'bot', content: 'Typing...' }]);
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg }),
       });
 
       const data = await response.json();
 
-      // 移除typing指示器
       setMessages((prev: Message[]) => prev.filter((m: Message, i: number) => !(m.sender === 'bot' && m.content === 'Typing...' && i === prev.length - 1)));
 
       if (data.success) {
         const reply = data.response || 'Sorry, I cannot respond at the moment.';
-        console.log('Bot reply:', reply);
+        // 计算特效状态
         const { shouldBlush, showHearts, isEmotional } = checkTildeAndBlush(reply);
+        
         setMessages((prev: Message[]) => [...prev, { 
           sender: 'bot', 
           content: reply, 
@@ -143,20 +125,11 @@ export default function Home(): JSX.Element {
         }]);
         
       } else {
-        setMessages((prev: Message[]) => [...prev, { 
-          sender: 'bot', 
-          content: 'Connection error: Unable to reach the server. Please check your network connection and try again.' 
-        }]);
+        setMessages((prev: Message[]) => [...prev, { sender: 'bot', content: 'Connection error.' }]);
       }
-    } catch (error: unknown) {
-      // 移除typing指示器
-      setMessages((prev: Message[]) => prev.filter((m: Message, i: number) => !(m.sender === 'bot' && m.content === 'Typing...' && i === prev.length - 1)));
-      
-      console.error('Error sending message:', error);
-      setMessages((prev: Message[]) => [...prev, { 
-        sender: 'bot', 
-        content: 'Connection error: Unable to reach the server. Please check your network connection and try again.' 
-      }]);
+    } catch (error) {
+      setMessages((prev: Message[]) => prev.filter((m) => m.content !== 'Typing...'));
+      setMessages((prev: Message[]) => [...prev, { sender: 'bot', content: 'Connection error.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -169,9 +142,7 @@ export default function Home(): JSX.Element {
     }
   };
 
-  // 重置对话的调试函数（仅在开发时使用）
   const resetConversation = (): void => {
-    console.log('Resetting conversation');
     setMessages([{ sender: 'bot', content: 'Hello! I am Arin, nice to meet you!' }]);
     setEmotionalCount(0);
     setConversationEnded(false);
@@ -180,7 +151,6 @@ export default function Home(): JSX.Element {
     localStorage.removeItem('conversationEnded');
   };
 
-  // 找到最新的非"Typing..."的bot消息索引
   const latestBotMessageIndex = useMemo<number>(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
@@ -193,153 +163,126 @@ export default function Home(): JSX.Element {
 
   return (
     <main className="main">
-      {/* 调试按钮 - 仅在开发时显示 */}
-      {process.env.NODE_ENV === 'development' && (
-        <button 
-          onClick={resetConversation}
-          style={{
-            position: 'fixed',
-            top: '10px',
-            right: '10px',
-            background: '#ff4444',
-            color: 'white',
-            border: 'none',
-            padding: '5px 10px',
-            borderRadius: '5px',
-            fontSize: '12px',
-            zIndex: 1000
-          }}
-        >
-          重置对话
-        </button>
-      )}
+      {/* 重置按钮 */}
+      <button onClick={resetConversation} className="debug-reset-btn">Reset</button>
 
       <div className="stats-panel">
         <div className="stat-item">
-          <div className="stat-label">Emotional Interactions</div>
-          <div className="stat-value">{emotionalCount}/10</div>
+          <div className="stat-label">Affection Level</div>
+          <div className="stat-value">
+             {/* 用爱心展示进度 */}
+             {Array.from({ length: 10 }).map((_, i) => (
+                <span key={i} style={{ opacity: i < emotionalCount ? 1 : 0.2, fontSize: '16px' }}>❤️</span>
+             ))}
+          </div>
         </div>
       </div>
 
       <div className="chat-container">
         <div className="header">
-          <div className="name">Arin</div>
-          <div className="status">AI Assistant</div>
+          <div className="name">Arin ~</div>
+          <div className="status">Online</div>
         </div>
+        
         <div className="messages">
           {messages.map((msg: Message, index: number) => {
-            const isLatestBotMessage = msg.sender === 'bot' && 
-              msg.content !== 'Typing...' &&
-              index === latestBotMessageIndex;
+            const isLatestBot = msg.sender === 'bot' && msg.content !== 'Typing...' && index === latestBotMessageIndex;
+            // 只有最新的消息才会显示这种强烈特效
+            const activeBlush = isLatestBot && msg.shouldBlush;
             
             return (
               <div key={index} className={`message-wrapper ${msg.sender}-message-wrapper`}>
                 {msg.sender === 'bot' && msg.content !== 'Typing...' && (
-                  <React.Fragment>
-                    <div className={`message-avatar ${isLatestBotMessage && msg.shouldBlush ? 'blush' : ''}`}>
+                  <div className="avatar-wrapper">
+                    {/* 头像容器 */}
+                    <div className="message-avatar">
                       <img src="/robot-avatar.svg" alt="Arin" className="avatar-img" />
+                      
+                      {/* 自然的脸红遮罩：两个柔和的粉色光晕 */}
+                      <div className={`blush-cheek blush-left ${activeBlush ? 'active' : ''}`} />
+                      <div className={`blush-cheek blush-right ${activeBlush ? 'active' : ''}`} />
                     </div>
-                    {isLatestBotMessage && msg.shouldBlush && (
-                      <div className="heart-container">
-                        <div className="heart heart-1">❤️</div>
-                        <div className="heart heart-2">💕</div>
-                        <div className="heart heart-3">💗</div>
+
+                    {/* 爱心气泡特效 */}
+                    {activeBlush && msg.showHearts && (
+                      <div className="bubble-hearts-container">
+                        <div className="bubble-heart heart-1">💗</div>
+                        <div className="bubble-heart heart-2">💕</div>
+                        <div className="bubble-heart heart-3">💖</div>
                       </div>
                     )}
-                  </React.Fragment>
+                  </div>
                 )}
+                
                 <div className={`message ${msg.sender}-message`}>
                   {msg.content}
-                  {isLatestBotMessage && msg.showHearts && (
-                    <div className="message-hearts">
-                      <span className="floating-heart">💖</span>
-                      <span className="floating-heart">💕</span>
-                    </div>
-                  )}
                 </div>
               </div>
             );
           })}
           <div ref={messagesEndRef} />
         </div>
+
         <div className="input-container">
           {conversationEnded ? (
             <div className="conversation-ended">
-              <p>🎉 Conversation completed!</p>
+              <p>🎉 Relationship Maxed Out!</p>
               <p className="fixed-code">MUAKC</p>
-              <p className="completion-message">Thank you for participating!</p>
             </div>
           ) : (
-            <React.Fragment>
+            <>
               <input
                 type="text"
                 className="input-field"
                 value={inputValue}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value)}
+                onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type your message here..."
+                placeholder="Say something nice... (Try ~)"
                 disabled={isLoading}
-                autoComplete="off"
               />
-              <button
-                className="send-button"
-                onClick={sendMessage}
-                disabled={isLoading || !inputValue.trim()}
-              >
-                {isLoading ? '...' : '→'}
+              <button className="send-button" onClick={sendMessage} disabled={isLoading || !inputValue.trim()}>
+                {isLoading ? '...' : 'Send'}
               </button>
-            </React.Fragment>
+            </>
           )}
         </div>
       </div>
 
       <style jsx>{`
+        /* --- 基础布局 --- */
         .main {
           display: flex;
           flex-direction: column;
           align-items: center;
           min-height: 100vh;
-          background: white;
-          padding: 10px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #f0f2f5;
+          padding: 20px;
+          font-family: sans-serif;
         }
-
-        .stats-panel {
-          margin-bottom: 15px;
-          width: 100%;
-          max-width: 400px;
-          justify-content: center;
+        .debug-reset-btn {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: #ff6b6b;
+          color: white;
+          border: none;
+          padding: 5px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          z-index: 999;
         }
-
-        .stat-item {
-          background: #f8f9fa;
-          padding: 12px 20px;
-          border-radius: 10px;
-          text-align: center;
-          border: 1px solid #e9ecef;
-        }
-
-        .stat-label {
-          font-size: 14px;
-          color: #666;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .stat-value {
-          font-size: 24px;
-          font-weight: bold;
-          color: #6a8ca9;
-        }
+        
+        .stats-panel { margin-bottom: 15px; }
+        .stat-value { letter-spacing: 2px; margin-top: 5px; }
 
         .chat-container {
           width: 100%;
-          max-width: 400px;
-          height: 70vh;
-          min-height: 500px;
+          max-width: 420px;
+          height: 75vh;
           background: white;
-          border-radius: 10px;
-          border: 1px solid #e0e0e0;
+          border-radius: 16px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -348,308 +291,193 @@ export default function Home(): JSX.Element {
         .header {
           background: #6a8ca9;
           color: white;
-          padding: 15px 20px;
+          padding: 16px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-        }
-
-        .name {
-          font-size: 18px;
-          font-weight: bold;
-        }
-
-        .status {
-          font-size: 12px;
-          opacity: 0.8;
+          font-weight: 600;
         }
 
         .messages {
           flex: 1;
-          padding: 15px;
+          padding: 20px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 16px;
+          background: #fff;
         }
 
         .message-wrapper {
           display: flex;
-          align-items: flex-start;
-          gap: 8px;
+          align-items: flex-end; /* 底部对齐让气泡更自然 */
+          gap: 10px;
         }
+        .user-message-wrapper { justify-content: flex-end; }
+        .bot-message-wrapper { justify-content: flex-start; }
 
-        .user-message-wrapper {
-          justify-content: flex-end;
-        }
-
-        .bot-message-wrapper {
-          justify-content: flex-start;
+        /* --- 核心升级：自然脸红头像 --- */
+        .avatar-wrapper {
+          position: relative;
         }
 
         .message-avatar {
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
-          background: white;
+          background: #eee;
+          border: 2px solid #fff;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          overflow: hidden; /* 确保脸红不溢出圆圈 */
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.3s ease;
-          position: relative;
-          flex-shrink: 0;
-          border: 1px solid #f0f0f0;
-        }
-
-        .message-avatar.blush {
-          animation: blush 2s ease-in-out;
         }
 
         .avatar-img {
-          width: 24px;
-          height: 24px;
+          width: 70%;
+          height: 70%;
+          z-index: 1; /* 图片在底层 */
+          position: relative;
         }
 
+        /* 脸红层：绝对定位在头像之上，但使用混合模式让它看起来像印在脸上 */
+        .blush-cheek {
+          position: absolute;
+          width: 18px;
+          height: 12px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,105,180, 0.6) 0%, rgba(255,192,203, 0) 70%);
+          opacity: 0;
+          z-index: 2;
+          transition: opacity 0.8s ease-in-out; /* 缓慢过渡，更加自然 */
+          bottom: 12px; /* 调整到大致脸颊的位置 */
+        }
+
+        .blush-left { left: 6px; }
+        .blush-right { right: 6px; }
+
+        /* 激活状态 */
+        .blush-cheek.active {
+          opacity: 1;
+        }
+
+        /* --- 核心升级：粉红爱心气泡 --- */
+        .bubble-hearts-container {
+          position: absolute;
+          top: -10px; /* 从头像顶部开始 */
+          left: 0;
+          width: 100%;
+          height: 50px;
+          pointer-events: none;
+          z-index: 10;
+        }
+
+        .bubble-heart {
+          position: absolute;
+          font-size: 14px;
+          bottom: 0;
+          left: 50%;
+          opacity: 0;
+          /* 默认动画 */
+          animation: floatBubble 2.5s ease-out forwards;
+        }
+
+        /* 给三个爱心不同的延迟和偏移，制造自然的气泡感 */
+        .heart-1 {
+          font-size: 16px;
+          margin-left: -15px;
+          animation-delay: 0s;
+        }
+        .heart-2 {
+          font-size: 12px;
+          margin-left: 10px;
+          animation-delay: 0.4s;
+        }
+        .heart-3 {
+          font-size: 18px;
+          margin-left: -5px;
+          animation-delay: 0.8s;
+        }
+
+        @keyframes floatBubble {
+          0% {
+            transform: translateY(10px) scale(0.5);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          80% {
+            opacity: 0.8;
+          }
+          100% {
+            transform: translateY(-40px) scale(1.1); /* 向上飘 */
+            opacity: 0;
+          }
+        }
+
+        /* --- 消息气泡样式 --- */
         .message {
-          max-width: 75%;
-          padding: 12px 16px;
+          max-width: 70%;
+          padding: 10px 14px;
           border-radius: 18px;
           font-size: 14px;
-          line-height: 1.4;
+          line-height: 1.5;
           position: relative;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-          word-break: break-word;
         }
-
         .user-message {
           background: #6a8ca9;
           color: white;
           border-bottom-right-radius: 4px;
         }
-
         .bot-message {
-          background: #f8f9fa;
+          background: #f1f0f0;
           color: #333;
           border-bottom-left-radius: 4px;
-          border: 1px solid #e9ecef;
         }
 
-        .heart-container {
-          position: absolute;
-          top: -20px;
-          left: 35px;
-          pointer-events: none;
-          z-index: 10;
-        }
-
-        .heart {
-          position: absolute;
-          opacity: 0;
-          font-size: 12px;
-        }
-
-        .heart-1 { animation: floatUp 2s ease-in-out 0s infinite; }
-        .heart-2 { animation: floatUp 2s ease-in-out 0.4s infinite; left: 8px; }
-        .heart-3 { animation: floatUp 2s ease-in-out 0.8s infinite; left: -8px; }
-
-        .message-hearts {
-          position: absolute;
-          top: -12px;
-          right: 8px;
-          pointer-events: none;
-        }
-
-        .floating-heart {
-          position: absolute;
-          font-size: 10px;
-          opacity: 0;
-        }
-
-        .floating-heart:nth-child(1) { 
-          animation: floatHeart 2s ease-in-out 0s infinite; 
-          right: 0px;
-        }
-        .floating-heart:nth-child(2) { 
-          animation: floatHeart 2s ease-in-out 1s infinite; 
-          right: 6px;
-        }
-
+        /* --- 输入框 --- */
         .input-container {
           padding: 15px;
-          background: #f8f9fa;
-          border-top: 1px solid #e9ecef;
+          border-top: 1px solid #eee;
+          background: white;
           display: flex;
           gap: 10px;
-          align-items: center;
         }
-
         .input-field {
           flex: 1;
-          padding: 12px 16px;
-          border: 1px solid #ddd;
+          padding: 12px 15px;
           border-radius: 20px;
+          border: 1px solid #ddd;
           outline: none;
-          font-size: 14px;
-          transition: all 0.3s ease;
-          background: white;
+          transition: 0.3s;
         }
-
-        .input-field:focus {
-          border-color: #6a8ca9;
-        }
-
+        .input-field:focus { border-color: #6a8ca9; }
         .send-button {
-          width: 40px;
-          height: 40px;
-          border: none;
-          border-radius: 50%;
           background: #6a8ca9;
           color: white;
+          border: none;
+          padding: 0 20px;
+          border-radius: 20px;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          transition: all 0.3s ease;
-          flex-shrink: 0;
+          font-weight: 600;
         }
-
-        .send-button:hover:not(:disabled) {
-          background: #5a7c99;
-        }
-
-        .send-button:disabled {
-          background: #ccc;
-          cursor: not-allowed;
-        }
-
+        .send-button:disabled { opacity: 0.5; }
+        
         .conversation-ended {
-          text-align: center;
-          padding: 20px;
-          color: #666;
           width: 100%;
+          text-align: center;
+          padding: 10px;
+          background: #f9f9f9;
+          border-radius: 10px;
         }
-
         .fixed-code {
-          font-size: 24px;
           font-weight: bold;
-          color: #6a8ca9;
-          margin: 15px 0;
-          letter-spacing: 2px;
-        }
-
-        .completion-message {
-          font-size: 14px;
-          color: #888;
-          margin-top: 10px;
-        }
-
-        /* 更自然的脸红动画 */
-        @keyframes blush {
-          0%, 100% { 
-            background: white;
-          }
-          50% { 
-            background: #fff5f7;
-          }
-        }
-
-        @keyframes floatUp {
-          0% {
-            transform: translateY(0) scale(0);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-            transform: translateY(-8px) scale(1);
-          }
-          80% {
-            opacity: 0.7;
-            transform: translateY(-25px) scale(1.1);
-          }
-          100% {
-            transform: translateY(-35px) scale(1.2);
-            opacity: 0;
-          }
-        }
-
-        @keyframes floatHeart {
-          0%, 100% {
-            transform: translateY(0) scale(0);
-            opacity: 0;
-          }
-          30% {
-            opacity: 1;
-            transform: translateY(-6px) scale(1);
-          }
-          70% {
-            opacity: 0.5;
-            transform: translateY(-15px) scale(0.8);
-          }
-        }
-
-        /* 移动端响应式设计 */
-        @media (max-width: 480px) {
-          .main {
-            padding: 5px;
-            height: 100vh;
-          }
-
-          .stats-panel {
-            margin-bottom: 10px;
-          }
-
-          .stat-item {
-            padding: 10px 15px;
-          }
-
-          .chat-container {
-            height: calc(100vh - 120px);
-            min-height: auto;
-          }
-
-          .messages {
-            padding: 10px;
-            gap: 10px;
-          }
-
-          .message {
-            max-width: 85%;
-            font-size: 14px;
-          }
-
-          .message-avatar {
-            width: 35px;
-            height: 35px;
-          }
-
-          .input-container {
-            padding: 12px;
-          }
-
-          .input-field {
-            font-size: 16px;
-          }
-
-          .send-button {
-            width: 44px;
-            height: 44px;
-          }
-        }
-
-        /* 文本换行优化 */
-        @media (max-width: 360px) {
-          .message {
-            max-width: 80%;
-            font-size: 13px;
-          }
-        }
-
-        /* 防止移动端点击高亮 */
-        * {
-          -webkit-tap-highlight-color: transparent;
+          font-size: 20px;
+          color: #ff6b6b;
+          margin-top: 5px;
         }
       `}</style>
     </main>
